@@ -14,6 +14,7 @@ import type { MatchResult } from "./types.ts";
 
 const INPUT_CSV = "out/institutions.csv";
 const OUTPUT_CSV = "out/city_ranking.csv";
+const OUTPUT_COUNTRY_CSV = "out/country_ranking.csv";
 
 interface CityAgg {
   city: string;
@@ -157,6 +158,127 @@ function main() {
   writeFileSync(OUTPUT_CSV, csv);
   console.error(`Wrote ${OUTPUT_CSV} (${out.length} cities)`);
 
+  // ── Country aggregation ─────────────────────────────────────────
+  // Key: lowercased country label. Centroid = Share-weighted mean of
+  // matched institutions' lat/lng, so the marker sits over the actual
+  // research cluster rather than the geometric middle of a continent.
+  interface CountryAgg {
+    country: string;
+    count_sum: number;
+    share_sum: number;
+    city_count: number;
+    institution_count: number;
+    lat: number;
+    lng: number;
+    top_cities: string;
+  }
+
+  // First pass: per-country accumulators.
+  const cAcc = new Map<
+    string,
+    {
+      country: string;
+      count_sum: number;
+      share_sum: number;
+      latW: number; // share-weighted lat
+      lngW: number;
+      wSum: number;
+      institutions: Set<string>; // unique (country::city) keys → city count proxy
+      instCount: number;
+      cities: Map<string, number>; // city label → share_sum
+    }
+  >();
+
+  for (const r of rows) {
+    const country = (r["Country/territory"] ?? "").trim();
+    if (!country) continue;
+    const city = (r.city ?? "").trim();
+    const share = Number(r.Share) || 0;
+    const count = Number(r.Count) || 0;
+    const lat = Number(r.lat);
+    const lng = Number(r.lng);
+    const key = country.toLowerCase();
+    let a = cAcc.get(key);
+    if (!a) {
+      a = {
+        country,
+        count_sum: 0,
+        share_sum: 0,
+        latW: 0,
+        lngW: 0,
+        wSum: 0,
+        institutions: new Set(),
+        instCount: 0,
+        cities: new Map(),
+      };
+      cAcc.set(key, a);
+    }
+    a.count_sum += count;
+    a.share_sum += share;
+    if (Number.isFinite(lat) && Number.isFinite(lng) && share > 0) {
+      a.latW += lat * share;
+      a.lngW += lng * share;
+      a.wSum += share;
+    }
+    if (city) {
+      a.institutions.add(`${city.toLowerCase()}`);
+      a.cities.set(city, (a.cities.get(city) ?? 0) + share);
+    }
+    a.instCount += 1;
+  }
+
+  const byShareC = [...cAcc.values()].sort(
+    (a, b) => b.share_sum - a.share_sum
+  );
+  const byCountC = [...cAcc.values()].sort(
+    (a, b) => b.count_sum - a.count_sum
+  );
+
+  const rankByShareC = new Map<string, number>();
+  byShareC.forEach((c, i) => rankByShareC.set(c.country, i + 1));
+  const rankByCountC = new Map<string, number>();
+  byCountC.forEach((c, i) => rankByCountC.set(c.country, i + 1));
+
+  const outC: Array<CountryAgg & { rank_by_share: number; rank_by_count: number }> =
+    [];
+  for (const a of byShareC) {
+    const topCities = [...a.cities.entries()]
+      .sort((x, y) => y[1] - x[1])
+      .slice(0, 3)
+      .map(([name, s]) => `${name} (${Math.round(s)})`)
+      .join(" | ");
+    outC.push({
+      country: a.country,
+      count_sum: a.count_sum,
+      share_sum: a.share_sum,
+      city_count: a.institutions.size,
+      institution_count: a.instCount,
+      lat: a.wSum > 0 ? a.latW / a.wSum : 0,
+      lng: a.wSum > 0 ? a.lngW / a.wSum : 0,
+      top_cities: topCities,
+      rank_by_share: rankByShareC.get(a.country)!,
+      rank_by_count: rankByCountC.get(a.country)!,
+    });
+  }
+
+  const csvC = Papa.unparse({
+    fields: [
+      "rank_by_share",
+      "rank_by_count",
+      "country",
+      "lat",
+      "lng",
+      "count_sum",
+      "share_sum",
+      "city_count",
+      "institution_count",
+      "top_cities",
+    ],
+    data: outC,
+  });
+  writeFileSync(OUTPUT_COUNTRY_CSV, csvC);
+  console.error(`Wrote ${OUTPUT_COUNTRY_CSV} (${outC.length} countries)`);
+
   // Print top 20 to stderr for a quick eyeball check.
   console.log("\n=== Top 20 cities by Share ===");
   console.log(
@@ -168,6 +290,19 @@ function main() {
         `${c.city.padEnd(30)} ${c.country.padEnd(16)} ` +
         `${String(c.share_sum).padStart(7)}  ${String(c.count_sum).padStart(7)}  ` +
         `${c.institution_count}`
+    );
+  });
+
+  console.log("\n=== Top 20 countries by Share ===");
+  console.log(
+    "rank  country                        share    count   #city  #inst"
+  );
+  outC.slice(0, 20).forEach((c, i) => {
+    console.log(
+      `${String(i + 1).padStart(4)}  ` +
+        `${c.country.padEnd(30)} ` +
+        `${String(Math.round(c.share_sum)).padStart(7)}  ${String(c.count_sum).padStart(7)}  ` +
+        `${String(c.city_count).padStart(5)}  ${c.institution_count}`
     );
   });
 

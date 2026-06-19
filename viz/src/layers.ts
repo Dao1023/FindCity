@@ -1,13 +1,17 @@
 import L from "leaflet";
 import "leaflet.heat";
-import type { City, Metric } from "./data.ts";
+import {
+  pointValue,
+  type Metric,
+  type Point,
+} from "./data.ts";
 
 export type ViewMode = "bubbles" | "heat";
 
 interface LayerState {
   bubbles: L.LayerGroup;
   heat: L.Layer | null;
-  markers: Map<number, L.Marker>; // city.rank -> marker
+  markers: Map<number, L.Marker>; // Point.rankShare+kind key -> marker
 }
 
 export function createLayers(map: L.Map): LayerState {
@@ -15,9 +19,12 @@ export function createLayers(map: L.Map): LayerState {
   return { bubbles, heat: null, markers: new Map() };
 }
 
-function maxValue(cities: City[], metric: Metric): number {
+function maxValue(points: Point[], metric: Metric): number {
   let m = 0;
-  for (const c of cities) if (c[metric] > m) m = c[metric];
+  for (const p of points) {
+    const v = pointValue(p, metric);
+    if (v > m) m = v;
+  }
   return m || 1;
 }
 
@@ -32,21 +39,21 @@ export function bubbleRadius(value: number, max: number): number {
 export function renderBubbles(
   map: L.Map,
   state: LayerState,
-  cities: City[],
+  points: Point[],
   metric: Metric,
-  onHover: (city: City | null, evt: MouseEvent) => void,
-  onClick: (city: City) => void
+  onHover: (p: Point | null, evt: MouseEvent) => void,
+  onClick: (p: Point) => void
 ) {
   state.bubbles.clearLayers();
   state.markers.clear();
 
-  const max = maxValue(cities, metric);
-  // Show all cities that have a non-zero metric value.
-  const visible = cities.filter((c) => c[metric] > 0);
+  const max = maxValue(points, metric);
+  const visible = points.filter((p) => pointValue(p, metric) > 0);
 
-  visible.forEach((city, idx) => {
-    const r = bubbleRadius(city[metric], max);
-    const html = `<div class="city-bubble" style="
+  visible.forEach((p, idx) => {
+    const v = pointValue(p, metric);
+    const r = bubbleRadius(v, max);
+    const html = `<div class="city-bubble ${p.kind === "country" ? "country-bubble" : ""}" style="
       width:${r * 2}px;height:${r * 2}px;
       margin-left:${-r}px;margin-top:${-r}px;
       animation-delay:${Math.min(idx * 4, 800)}ms;
@@ -59,9 +66,9 @@ export function renderBubbles(
       iconAnchor: [r, r],
     });
 
-    const marker = L.marker([city.lat, city.lng], {
+    const marker = L.marker([p.lat, p.lng], {
       icon,
-      zIndexOffset: Math.round(max - city[metric]),
+      zIndexOffset: Math.round(max - v),
       keyboard: false,
       interactive: true,
       riseOnHover: true,
@@ -69,17 +76,17 @@ export function renderBubbles(
 
     marker.on("mouseover", (e) => {
       const ev = (e as any).originalEvent as MouseEvent;
-      onHover(city, ev);
+      onHover(p, ev);
     });
     marker.on("mouseout", () => onHover(null, null as any));
     marker.on("mousemove", (e) => {
       const ev = (e as any).originalEvent as MouseEvent;
-      onHover(city, ev);
+      onHover(p, ev);
     });
-    marker.on("click", () => onClick(city));
+    marker.on("click", () => onClick(p));
 
     marker.addTo(state.bubbles);
-    state.markers.set(city.rank, marker);
+    state.markers.set(idx, marker);
   });
 }
 
@@ -87,20 +94,23 @@ export function renderBubbles(
 export function renderHeat(
   map: L.Map,
   state: LayerState,
-  cities: City[],
+  points: Point[],
   metric: Metric
 ) {
   if (state.heat) {
     map.removeLayer(state.heat);
     state.heat = null;
   }
-  const max = maxValue(cities, metric);
-  const points: Array<[number, number, number]> = cities
-    .filter((c) => c[metric] > 0)
-    .map((c) => [c.lat, c.lng, 0.05 + 1.2 * Math.sqrt(c[metric] / max)]);
+  const max = maxValue(points, metric);
+  const latlngs: Array<[number, number, number]> = points
+    .filter((p) => pointValue(p, metric) > 0)
+    .map((p) => {
+      const v = pointValue(p, metric);
+      return [p.lat, p.lng, 0.05 + 1.2 * Math.sqrt(v / max)];
+    });
 
   // @ts-expect-error leaflet.heat augments L at runtime
-  const heat = L.heatLayer(points, {
+  const heat = L.heatLayer(latlngs, {
     radius: 22,
     blur: 18,
     maxZoom: 6,
@@ -123,9 +133,9 @@ export function setView(
   state: LayerState,
   view: ViewMode,
   metric: Metric,
-  cities: City[],
-  onHover: (city: City | null, evt: MouseEvent) => void,
-  onClick: (city: City) => void
+  points: Point[],
+  onHover: (p: Point | null, evt: MouseEvent) => void,
+  onClick: (p: Point) => void
 ) {
   if (view === "bubbles") {
     if (state.heat) {
@@ -133,9 +143,9 @@ export function setView(
       state.heat = null;
     }
     if (!map.hasLayer(state.bubbles)) state.bubbles.addTo(map);
-    renderBubbles(map, state, cities, metric, onHover, onClick);
+    renderBubbles(map, state, points, metric, onHover, onClick);
   } else {
     map.removeLayer(state.bubbles);
-    renderHeat(map, state, cities, metric);
+    renderHeat(map, state, points, metric);
   }
 }

@@ -139,6 +139,20 @@ html, body {
   z-index: 1000 !important;
 }
 
+/* Country bubbles: copper-ringed to distinguish from city bubbles. */
+.country-bubble {
+  background: radial-gradient(
+    circle at 35% 30%,
+    var(--gold-bright) 0%,
+    var(--gold) 40%,
+    var(--copper) 75%,
+    transparent 100%
+  );
+  box-shadow:
+    0 0 14px 3px rgba(196, 122, 28, 0.65),
+    0 0 32px 10px rgba(138, 63, 18, 0.22);
+}
+
 @keyframes bubble-in {
   from {
     opacity: 0;

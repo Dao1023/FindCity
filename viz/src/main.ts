@@ -1,6 +1,15 @@
 import "./style.css";
 import L from "leaflet";
-import { loadCities, type City, type Metric } from "./data.ts";
+import {
+  loadCities,
+  loadCountries,
+  pointName,
+  pointRank,
+  pointSub,
+  type Granularity,
+  type Metric,
+  type Point,
+} from "./data.ts";
 import {
   createLayers,
   setView,
@@ -18,8 +27,9 @@ import {
 } from "./ui.ts";
 
 async function main() {
-  const cities = await loadCities();
-  console.log(`Loaded ${cities.length} cities`);
+  // Load both granularities up front so toggling is instant.
+  const [cities, countries] = await Promise.all([loadCities(), loadCountries()]);
+  console.log(`Loaded ${cities.length} cities, ${countries.length} countries`);
 
   // Initialize the dark map.
   const map = L.map("map", {
@@ -59,6 +69,7 @@ async function main() {
   const rail: RailElements = {
     list: document.getElementById("rail-list") as HTMLOListElement,
     metricLabel: document.getElementById("rail-metric") as HTMLSpanElement,
+    headLabel: document.getElementById("rail-head") as HTMLSpanElement,
   };
   const hoverValue = document.getElementById("hover-city") as HTMLSpanElement;
   const cityCount = document.getElementById("city-count") as HTMLSpanElement;
@@ -67,13 +78,19 @@ async function main() {
   // State.
   let metric: Metric = "share";
   let view: ViewMode = "bubbles";
+  let granularity: Granularity = "city";
   let layerState: LayerState = createLayers(map);
 
-  const onHover = (city: City | null, evt: MouseEvent) => {
-    if (city && evt) {
-      showTooltip(tooltip, city, evt, metric);
-      hoverValue.textContent = `${city.city} · ${city.country}`;
-      highlightRailItem(rail, city.rank);
+  const points = (): Point[] =>
+    granularity === "city" ? (cities as Point[]) : (countries as Point[]);
+
+  const onHover = (p: Point | null, evt: MouseEvent) => {
+    if (p && evt) {
+      showTooltip(tooltip, p, evt, metric);
+      hoverValue.textContent =
+        `${pointName(p)}${pointSub(p) ? " · " + pointSub(p) : ""} · ` +
+        `share ${Math.round(p.share)} count ${p.count}`;
+      highlightRailItem(rail, pointRank(p, metric));
     } else {
       hideTooltip(tooltip);
       hoverValue.textContent = "— move over a point —";
@@ -81,16 +98,17 @@ async function main() {
     }
   };
 
-  const flyTo = (city: City) => {
+  const flyTo = (p: Point) => {
     const zoom = map.getZoom() < 5 ? 6 : map.getZoom();
-    map.flyTo([city.lat, city.lng], zoom, { duration: 1.1 });
-    // Pulse the readout.
-    hoverValue.textContent = `${city.city} · ${city.country} · share ${city.share} count ${city.count}`;
+    map.flyTo([p.lat, p.lng], zoom, { duration: 1.1 });
+    hoverValue.textContent =
+      `${pointName(p)}${pointSub(p) ? " · " + pointSub(p) : ""} · ` +
+      `share ${Math.round(p.share)} count ${p.count}`;
   };
 
   const refresh = () => {
-    setView(map, layerState, view, metric, cities, onHover, flyTo);
-    renderRail(rail, cities, metric, flyTo);
+    setView(map, layerState, view, metric, points(), onHover, flyTo);
+    renderRail(rail, points(), metric, granularity, flyTo);
   };
 
   // Wire toggles.
@@ -102,11 +120,15 @@ async function main() {
     view = v as ViewMode;
     refresh();
   });
+  wireToggle("gran-toggle", granularity, (v) => {
+    granularity = v as Granularity;
+    refresh();
+  });
 
   // Initial render — wait a beat so tiles paint first.
   refresh();
 
-  // Update tooltip position on mouse move while a city is hovered.
+  // Update tooltip position on mouse move while a point is hovered.
   document.addEventListener("mousemove", (e) => {
     if (tooltip.root.classList.contains("visible")) {
       const pad = 16;

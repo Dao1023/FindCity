@@ -36,7 +36,7 @@
       <!-- Top cities rail, left side -->
       <aside class="rail">
         <div class="rail-head">
-          <span class="rail-label">Top Cities</span>
+          <span class="rail-label" id="rail-head">Top Cities</span>
           <span class="rail-metric" id="rail-metric">Share</span>
         </div>
         <ol class="rail-list" id="rail-list"></ol>
@@ -44,6 +44,13 @@
 
       <!-- Controls, bottom-right -->
       <div class="controls">
+        <div class="control-group">
+          <span class="control-label">Granularity</span>
+          <div class="toggle" id="gran-toggle">
+            <button data-gran="city" class="active">City</button>
+            <button data-gran="country">Country</button>
+          </div>
+        </div>
         <div class="control-group">
           <span class="control-label">Metric</span>
           <div class="toggle" id="metric-toggle">

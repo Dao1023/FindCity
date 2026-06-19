@@ -1,11 +1,21 @@
-import type { City, Metric } from "./data.ts";
+import {
+  pointName,
+  pointRank,
+  pointSub,
+  pointValue,
+  type Granularity,
+  type Metric,
+  type Point,
+} from "./data.ts";
 
 interface TooltipEls {
   root: HTMLDivElement;
-  city: HTMLDivElement;
-  country: HTMLDivElement;
+  name: HTMLDivElement;
+  sub: HTMLDivElement;
   stats: HTMLDListElement;
-  insts: HTMLDivElement;
+  detailWrap: HTMLDivElement;
+  detailLabel: HTMLSpanElement;
+  detailList: HTMLSpanElement;
 }
 
 export function createTooltip(): TooltipEls {
@@ -17,7 +27,7 @@ export function createTooltip(): TooltipEls {
     <dl class="t-stats">
       <dt>Share</dt><dd class="gold t-share"></dd>
       <dt>Count</dt><dd class="t-count"></dd>
-      <dt>Institutions</dt><dd class="t-inst-count"></dd>
+      <dt class="t-sub-label">Institutions</dt><dd class="t-sub-count"></dd>
       <dt>Rank</dt><dd class="t-rank"></dd>
     </dl>
     <div class="t-insts">
@@ -28,10 +38,12 @@ export function createTooltip(): TooltipEls {
   document.body.appendChild(root);
   return {
     root,
-    city: root.querySelector(".t-city")!,
-    country: root.querySelector(".t-country")!,
+    name: root.querySelector(".t-city")!,
+    sub: root.querySelector(".t-country")!,
     stats: root.querySelector(".t-stats")!,
-    insts: root.querySelector(".t-insts")!,
+    detailWrap: root.querySelector(".t-insts")!,
+    detailLabel: root.querySelector(".t-insts-label")!,
+    detailList: root.querySelector(".t-inst-list")!,
   };
 }
 
@@ -43,24 +55,35 @@ function formatNumber(n: number): string {
 
 export function showTooltip(
   t: TooltipEls,
-  city: City,
+  p: Point,
   evt: MouseEvent,
   metric: Metric
 ) {
-  t.city.textContent = city.city;
-  t.country.textContent = city.country;
-  (t.stats.querySelector(".t-share") as HTMLElement).textContent =
-    formatNumber(city.share);
-  (t.stats.querySelector(".t-count") as HTMLElement).textContent =
-    formatNumber(city.count);
-  (t.stats.querySelector(".t-inst-count") as HTMLElement).textContent =
-    String(city.institutions);
-  (t.stats.querySelector(".t-rank") as HTMLElement).textContent = `#${city.rank}`;
+  t.name.textContent = pointName(p);
+  t.sub.textContent = pointSub(p).toUpperCase();
 
-  const insts = city.topInstitutions
-    ? city.topInstitutions.split(" | ").slice(0, 3).join("\n")
-    : "—";
-  (t.insts.querySelector(".t-inst-list") as HTMLElement).textContent = insts;
+  const subLabel = t.stats.querySelector(".t-sub-label") as HTMLElement;
+  if (p.kind === "city") {
+    subLabel.textContent = "Institutions";
+    (t.stats.querySelector(".t-sub-count") as HTMLElement).textContent =
+      String(p.institutions);
+  } else {
+    subLabel.textContent = "Cities";
+    (t.stats.querySelector(".t-sub-count") as HTMLElement).textContent =
+      String(p.cities);
+  }
+
+  (t.stats.querySelector(".t-share") as HTMLElement).textContent =
+    formatNumber(p.share);
+  (t.stats.querySelector(".t-count") as HTMLElement).textContent =
+    formatNumber(p.count);
+  (t.stats.querySelector(".t-rank") as HTMLElement).textContent =
+    `#${pointRank(p, metric)}`;
+
+  const list = p.kind === "city" ? p.topInstitutions : p.topCities;
+  const detail = list ? list.split(" | ").slice(0, 3).join("\n") : "—";
+  t.detailLabel.textContent = p.kind === "city" ? "Top institutions" : "Top cities";
+  t.detailList.textContent = detail;
 
   // Position near cursor, clamped to viewport.
   const pad = 16;
@@ -87,29 +110,34 @@ export function hideTooltip(t: TooltipEls) {
 export interface RailElements {
   list: HTMLOListElement;
   metricLabel: HTMLSpanElement;
+  headLabel: HTMLSpanElement;
 }
 
 export function renderRail(
   rail: RailElements,
-  cities: City[],
+  points: Point[],
   metric: Metric,
-  onSelect: (city: City) => void
+  granularity: Granularity,
+  onSelect: (p: Point) => void
 ) {
   rail.metricLabel.textContent = metric === "share" ? "Share" : "Count";
+  rail.headLabel.textContent =
+    granularity === "city" ? "Top Cities" : "Top Countries";
   rail.list.innerHTML = "";
 
-  // Re-sort by metric so the rail reflects current ranking.
-  const sorted = [...cities].sort((a, b) => b[metric] - a[metric]).slice(0, 25);
-  sorted.forEach((city, idx) => {
+  const sorted = [...points]
+    .sort((a, b) => pointValue(b, metric) - pointValue(a, metric))
+    .slice(0, 25);
+  sorted.forEach((p, idx) => {
     const li = document.createElement("li");
     li.className = "rail-item";
-    li.dataset.rank = String(city.rank);
+    li.dataset.rank = String(pointRank(p, metric));
     li.innerHTML = `
       <span class="rail-rank">${String(idx + 1).padStart(2, "0")}</span>
-      <span class="rail-name">${escapeHtml(city.city)}</span>
-      <span class="rail-value">${formatNumber(city[metric])}</span>
+      <span class="rail-name">${escapeHtml(pointName(p))}</span>
+      <span class="rail-value">${formatNumber(pointValue(p, metric))}</span>
     `;
-    li.addEventListener("click", () => onSelect(city));
+    li.addEventListener("click", () => onSelect(p));
     li.addEventListener("mouseenter", () => li.classList.add("active"));
     li.addEventListener("mouseleave", () => li.classList.remove("active"));
     rail.list.appendChild(li);
@@ -118,7 +146,10 @@ export function renderRail(
 
 export function highlightRailItem(rail: RailElements, rank: number | null) {
   rail.list.querySelectorAll(".rail-item").forEach((el) => {
-    el.classList.toggle("active", el instanceof HTMLElement && el.dataset.rank === String(rank));
+    el.classList.toggle(
+      "active",
+      el instanceof HTMLElement && el.dataset.rank === String(rank)
+    );
   });
 }
 
@@ -135,17 +166,19 @@ export function wireToggle(
 ): void {
   const toggle = document.getElementById(id);
   if (!toggle) return;
+  const key = id.replace("-toggle", "");
   toggle.querySelectorAll("button").forEach((btn) => {
-    if (btn.dataset[id.replace("-toggle", "")] === initial) {
+    if (btn.dataset[key] === initial) {
       btn.classList.add("active");
     } else {
       btn.classList.remove("active");
     }
     btn.addEventListener("click", () => {
-      toggle.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
+      toggle
+        .querySelectorAll("button")
+        .forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
-      const key = `data-${id.replace("-toggle", "")}`;
-      onChange(btn.getAttribute(key) || "");
+      onChange(btn.dataset[key] || "");
     });
   });
 }
