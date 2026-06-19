@@ -2,7 +2,7 @@
 node_modules/
 
 # Build output
-dist/
+# dist/
 build/
 
 # ROR data cache (downloaded on demand, ~50MB)
