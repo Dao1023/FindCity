@@ -7,15 +7,21 @@
     "build:ror": "bun src/build-ror-index.ts",
     "match": "bun src/match.ts",
     "aggregate": "bun src/aggregate.ts",
-    "all": "bun run build:ror && bun run match && bun run aggregate"
+    "all": "bun run build:ror && bun run match && bun run aggregate",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "fflate": "^0.8.2",
-    "fuse.js": "^7.0.0",
+    "leaflet": "^1.9.4",
+    "leaflet.heat": "^0.2.0",
     "papaparse": "^5.4.1"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.21",
     "@types/papaparse": "^5.3.14",
-    "typescript": "^5.5.0"
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16"
   }
 }

@@ -26,6 +26,12 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Claude Code
+.claude/
+
+# Preview screenshots
+.preview*.png
+
 # Python legacy
 __pycache__/
 *.py[oc]

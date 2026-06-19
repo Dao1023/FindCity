@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Atlas of Science — Where Research Lives</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=JetBrains+Mono:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Map fills the screen -->
+      <div id="map"></div>
+
+      <!-- Vignette + grain overlays -->
+      <div class="overlay vignette" aria-hidden="true"></div>
+      <div class="overlay grain" aria-hidden="true"></div>
+
+      <!-- Title block, top-left -->
+      <header class="title-block">
+        <div class="kicker">Nature Index · 2024</div>
+        <h1>Atlas <em>of</em> Science</h1>
+        <p class="subtitle">Where the world's research actually happens — mapped by authorship share across <span id="city-count">…</span> cities.</p>
+      </header>
+
+      <!-- Top cities rail, left side -->
+      <aside class="rail">
+        <div class="rail-head">
+          <span class="rail-label">Top Cities</span>
+          <span class="rail-metric" id="rail-metric">Share</span>
+        </div>
+        <ol class="rail-list" id="rail-list"></ol>
+      </aside>
+
+      <!-- Controls, bottom-right -->
+      <div class="controls">
+        <div class="control-group">
+          <span class="control-label">Metric</span>
+          <div class="toggle" id="metric-toggle">
+            <button data-metric="share" class="active">Share</button>
+            <button data-metric="count">Count</button>
+          </div>
+        </div>
+        <div class="control-group">
+          <span class="control-label">View</span>
+          <div class="toggle" id="view-toggle">
+            <button data-view="bubbles" class="active">Bubbles</button>
+            <button data-view="heat">Heatmap</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Read-out, bottom-left -->
+      <footer class="readout">
+        <span class="readout-label">Hovered</span>
+        <span class="readout-value" id="hover-city">— move over a point —</span>
+      </footer>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
