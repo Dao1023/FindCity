@@ -1,0 +1,21 @@
+{
+  "name": "findcity",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Map Nature Index institutions to cities via ROR, then aggregate and rank",
+  "scripts": {
+    "build:ror": "bun src/build-ror-index.ts",
+    "match": "bun src/match.ts",
+    "aggregate": "bun src/aggregate.ts",
+    "all": "bun run build:ror && bun run match && bun run aggregate"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2",
+    "fuse.js": "^7.0.0",
+    "papaparse": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/papaparse": "^5.3.14",
+    "typescript": "^5.5.0"
+  }
+}

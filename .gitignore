@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# ROR data cache (downloaded on demand, ~50MB)
+.ror-cache/
+ror-data.json
+
+# Output data
+out/
+
+# Bun
+bun.lockb
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Python legacy
+__pycache__/
+*.py[oc]
+.venv
