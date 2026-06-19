@@ -4,6 +4,8 @@
 
 Map Nature Index research institutions to cities, then visualize country/city-level research output as a dark-observatory interactive map.
 
+![preview](.preview.png)
+
 ## Pipeline
 
 ```
