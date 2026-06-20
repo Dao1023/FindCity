@@ -52,7 +52,7 @@ export function pointSub(p: Point): string {
 }
 
 export async function loadCities(): Promise<City[]> {
-  const res = await fetch("/city_ranking.csv");
+  const res = await fetch(`${import.meta.env.BASE_URL}city_ranking.csv`);
   if (!res.ok) throw new Error(`Failed to fetch city_ranking.csv: ${res.status}`);
   const text = await res.text();
 
@@ -86,7 +86,7 @@ export async function loadCities(): Promise<City[]> {
 }
 
 export async function loadCountries(): Promise<Country[]> {
-  const res = await fetch("/country_ranking.csv");
+  const res = await fetch(`${import.meta.env.BASE_URL}country_ranking.csv`);
   if (!res.ok)
     throw new Error(`Failed to fetch country_ranking.csv: ${res.status}`);
   const text = await res.text();
